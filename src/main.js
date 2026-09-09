@@ -68,6 +68,7 @@ function installApplicationMenu() {
 const dataFile = () => path.join(app.getPath('userData'), 'meetings.json');
 const cloudApiKeyFile = () => path.join(app.getPath('userData'), 'cloud-api-key.bin');
 const defaultCloudModel = 'gpt-4.1-mini';
+const defaultAnthropicModel = 'deepseek-v4-flash[1M]';
 
 async function readStore() {
   try {
@@ -226,27 +227,44 @@ function cloudChatConfig(url) {
   if (!rawUrl) throw new Error('请填写云端 API 兼容地址。');
   let parsed;
   try { parsed = new URL(rawUrl); } catch { throw new Error('云端 API 地址格式无效。'); }
-  const model = parsed.searchParams.get('model') || defaultCloudModel;
+  const protocol = parsed.searchParams.get('protocol') === 'anthropic' ? 'anthropic' : 'openai';
+  const model = parsed.searchParams.get('model') || (protocol === 'anthropic' ? defaultAnthropicModel : defaultCloudModel);
   parsed.searchParams.delete('model');
+  parsed.searchParams.delete('protocol');
   const base = parsed.toString().replace(/\/$/, '');
-  return { endpoint: /\/chat\/completions$/i.test(base) ? base : `${base}/chat/completions`, model };
+  if (protocol === 'anthropic') {
+    const endpoint = /\/v1\/messages$/i.test(base) ? base : /\/v1$/i.test(base) ? `${base}/messages` : `${base}/v1/messages`;
+    return { endpoint, model, protocol };
+  }
+  return { endpoint: /\/chat\/completions$/i.test(base) ? base : `${base}/chat/completions`, model, protocol };
 }
 ipcMain.handle('ai:summarize', async (_event, { transcript, title, settings }) => {
   const prompt = `你是严谨的中文会议纪要助手。请根据以下会议逐字稿或对话记录，生成可直接粘贴到纪要中的 Markdown。必须包含：会议摘要、核心结论、议题讨论、行动项（表格，含事项/负责人/截止时间/状态）、风险与待确认事项。不要编造参会人、负责人或日期；未知信息请写“待确认”。\n\n会议标题：${title || '未命名会议'}\n\n原始记录：\n${transcript}`;
   try {
     const apiKey = await readCloudApiKey();
     const cloud = cloudChatConfig(settings.cloudApiUrl);
+    const request = cloud.protocol === 'anthropic'
+      ? {
+        headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+        body: { model: cloud.model, max_tokens: 8000, system: '你是一名严谨的中文会议纪要助手。', messages: [{ role: 'user', content: prompt }], temperature: 0.2 }
+      }
+      : {
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+        body: { model: cloud.model, messages: [{ role: 'system', content: '你是一名严谨的中文会议纪要助手。' }, { role: 'user', content: prompt }], temperature: 0.2 }
+      };
     const response = await fetch(cloud.endpoint, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({ model: cloud.model, messages: [{ role: 'system', content: '你是一名严谨的中文会议纪要助手。' }, { role: 'user', content: prompt }], temperature: 0.2 })
+      headers: request.headers,
+      body: JSON.stringify(request.body)
     });
     if (!response.ok) {
       const detail = (await response.text()).slice(0, 500);
       throw new Error(`云端服务返回状态 ${response.status}${detail ? `：${detail}` : ''}`);
     }
     const result = await response.json();
-    const markdown = result.choices?.[0]?.message?.content;
+    const markdown = cloud.protocol === 'anthropic'
+      ? result.content?.filter((item) => item.type === 'text').map((item) => item.text).join('')
+      : result.choices?.[0]?.message?.content;
     if (!markdown || typeof markdown !== 'string') throw new Error('云端模型没有返回纪要内容；请确认该服务支持 Chat Completions 接口。');
     return { ok: true, markdown };
   } catch (error) { return { ok: false, error: `智能整理失败：${error.message}` }; }
