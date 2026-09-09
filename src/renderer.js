@@ -2,7 +2,6 @@ const appEl = document.querySelector('#app');
 
 const defaultSettings = {
   cloudApiUrl: 'https://api.openai.com/v1',
-  cloudModel: 'gpt-4.1-mini',
   whisperPath: '',
   whisperModel: '',
   ffmpegPath: '',
@@ -558,7 +557,7 @@ async function settingsModal() {
   const settings = { ...defaultSettings, ...store.settings };
   const keyStatus = await window.minuteMark.cloudApiKeyStatus();
   const keyHint = !keyStatus.available ? '当前系统不支持安全存储，无法保存 API Key。' : keyStatus.configured ? '已安全保存；留空将保留当前 Key，输入新值可替换。' : '尚未保存；Key 将使用系统安全存储加密保存。';
-  const element = modal(`<button class="close">×</button><h2>智能功能设置</h2><p class="helper">纪要生成使用云端大模型；音频和视频均在本机转写。视频会先由 FFmpeg 提取为 WAV，再交给本地 Whisper。</p><label>云端 API 兼容地址<input id="cloud-url" value="${escapeHtml(settings.cloudApiUrl)}" placeholder="https://api.openai.com/v1"></label><label>云端纪要模型<input id="cloud-model" value="${escapeHtml(settings.cloudModel)}" placeholder="例如 gpt-4.1-mini"></label><label>云端 API Key<input id="cloud-key" type="password" autocomplete="off" placeholder="${keyStatus.configured ? '已保存，留空则不变' : '请输入 API Key'}"></label><p class="helper">${keyHint}</p><hr><label>本地 Whisper 转写程序路径<input id="whisper" value="${escapeHtml(settings.whisperPath)}"></label><label>本地 Whisper 模型路径<input id="whisper-model" value="${escapeHtml(settings.whisperModel)}"></label><label>FFmpeg 路径（MP3、M4A 和视频需要）<input id="ffmpeg" value="${escapeHtml(settings.ffmpegPath)}"></label><div class="modal-actions"><button class="ghost cancel">取消</button><button class="capture-btn" id="save-settings">保存</button></div>`);
+  const element = modal(`<button class="close">×</button><h2>智能功能设置</h2><p class="helper">纪要生成只需填写云端 API 地址和 API Key；默认使用 gpt-4.1-mini。音频和视频均在本机转写，视频会先由 FFmpeg 提取为 WAV，再交给本地 Whisper。</p><label>云端 API 地址<input id="cloud-url" value="${escapeHtml(settings.cloudApiUrl)}" placeholder="https://api.openai.com/v1"></label><label>云端 API Key<input id="cloud-key" type="password" autocomplete="off" placeholder="${keyStatus.configured ? '已保存，留空则不变' : '请输入 API Key'}"></label><p class="helper">${keyHint}</p><hr><label>本地 Whisper 转写程序路径<input id="whisper" value="${escapeHtml(settings.whisperPath)}"></label><label>本地 Whisper 模型路径<input id="whisper-model" value="${escapeHtml(settings.whisperModel)}"></label><label>FFmpeg 路径（MP3、M4A 和视频需要）<input id="ffmpeg" value="${escapeHtml(settings.ffmpegPath)}"></label><div class="modal-actions"><button class="ghost cancel">取消</button><button class="capture-btn" id="save-settings">保存</button></div>`);
   element.querySelectorAll('.close,.cancel').forEach((button) => button.onclick = () => element.remove());
   element.querySelector('#save-settings').onclick = async () => {
     const button = element.querySelector('#save-settings');
@@ -568,7 +567,8 @@ async function settingsModal() {
       const result = await window.minuteMark.saveCloudApiKey(key);
       if (!result.ok) { button.disabled = false; return toast(result.error); }
     }
-    store.settings = { ...store.settings, cloudApiUrl: element.querySelector('#cloud-url').value.trim(), cloudModel: element.querySelector('#cloud-model').value.trim(), whisperPath: element.querySelector('#whisper').value.trim(), whisperModel: element.querySelector('#whisper-model').value.trim(), ffmpegPath: element.querySelector('#ffmpeg').value.trim() };
+    store.settings = { ...store.settings, cloudApiUrl: element.querySelector('#cloud-url').value.trim(), whisperPath: element.querySelector('#whisper').value.trim(), whisperModel: element.querySelector('#whisper-model').value.trim(), ffmpegPath: element.querySelector('#ffmpeg').value.trim() };
+    delete store.settings.cloudModel;
     scheduleSave(); element.remove(); toast('智能功能设置已保存');
   };
 }

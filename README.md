@@ -27,7 +27,7 @@ pnpm start
 
 ## 智能功能配置
 
-1. 在“智能功能设置”中填写云端大模型的 OpenAI 兼容 API 地址、模型名和 API Key。API Key 使用系统安全存储加密保存，不会写入会议数据。
+1. 在“智能功能设置”中填写云端大模型的 OpenAI 兼容 API 地址和 API Key。默认使用 `gpt-4.1-mini`；如兼容服务需要其他模型，可在 API 地址末尾追加 `?model=模型名`。API Key 使用系统安全存储加密保存，不会写入会议数据。
 2. 音频与视频转写需填写本地 `whisper-cli.exe` 和 Whisper GGML 模型的绝对路径。
 3. WAV 可直接转写；MP3、M4A 和视频需填写 `ffmpeg.exe` 路径。视频会先在本机提取为 16 kHz 单声道 WAV，再由 Whisper 转为文字。
 

@@ -67,12 +67,13 @@ function installApplicationMenu() {
 
 const dataFile = () => path.join(app.getPath('userData'), 'meetings.json');
 const cloudApiKeyFile = () => path.join(app.getPath('userData'), 'cloud-api-key.bin');
+const defaultCloudModel = 'gpt-4.1-mini';
 
 async function readStore() {
   try {
     return JSON.parse(await fs.readFile(dataFile(), 'utf8'));
   } catch {
-    return { meetings: [], settings: { cloudApiUrl: 'https://api.openai.com/v1', cloudModel: 'gpt-4.1-mini', whisperPath: '', whisperModel: '', ffmpegPath: '' } };
+    return { meetings: [], settings: { cloudApiUrl: 'https://api.openai.com/v1', whisperPath: '', whisperModel: '', ffmpegPath: '' } };
   }
 }
 
@@ -220,19 +221,25 @@ async function readCloudApiKey() {
   if (!safeStorage.isEncryptionAvailable()) throw new Error('当前系统无法读取安全存储中的 API Key。');
   try { return safeStorage.decryptString(await fs.readFile(cloudApiKeyFile())); } catch { throw new Error('请先在智能功能设置中填写并保存云端 API Key。'); }
 }
-function cloudChatEndpoint(url) {
-  const base = String(url || '').trim().replace(/\/$/, '');
-  if (!base) throw new Error('请填写云端 API 兼容地址。');
-  return /\/chat\/completions$/i.test(base) ? base : `${base}/chat/completions`;
+function cloudChatConfig(url) {
+  const rawUrl = String(url || '').trim();
+  if (!rawUrl) throw new Error('请填写云端 API 兼容地址。');
+  let parsed;
+  try { parsed = new URL(rawUrl); } catch { throw new Error('云端 API 地址格式无效。'); }
+  const model = parsed.searchParams.get('model') || defaultCloudModel;
+  parsed.searchParams.delete('model');
+  const base = parsed.toString().replace(/\/$/, '');
+  return { endpoint: /\/chat\/completions$/i.test(base) ? base : `${base}/chat/completions`, model };
 }
 ipcMain.handle('ai:summarize', async (_event, { transcript, title, settings }) => {
   const prompt = `你是严谨的中文会议纪要助手。请根据以下会议逐字稿或对话记录，生成可直接粘贴到纪要中的 Markdown。必须包含：会议摘要、核心结论、议题讨论、行动项（表格，含事项/负责人/截止时间/状态）、风险与待确认事项。不要编造参会人、负责人或日期；未知信息请写“待确认”。\n\n会议标题：${title || '未命名会议'}\n\n原始记录：\n${transcript}`;
   try {
     const apiKey = await readCloudApiKey();
-    const response = await fetch(cloudChatEndpoint(settings.cloudApiUrl), {
+    const cloud = cloudChatConfig(settings.cloudApiUrl);
+    const response = await fetch(cloud.endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({ model: settings.cloudModel, messages: [{ role: 'system', content: '你是一名严谨的中文会议纪要助手。' }, { role: 'user', content: prompt }], temperature: 0.2 })
+      body: JSON.stringify({ model: cloud.model, messages: [{ role: 'system', content: '你是一名严谨的中文会议纪要助手。' }, { role: 'user', content: prompt }], temperature: 0.2 })
     });
     if (!response.ok) {
       const detail = (await response.text()).slice(0, 500);
