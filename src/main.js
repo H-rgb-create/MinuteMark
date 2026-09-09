@@ -245,7 +245,7 @@ ipcMain.handle('ai:summarize', async (_event, { transcript, title, settings }) =
     const cloud = cloudChatConfig(settings.cloudApiUrl);
     const request = cloud.protocol === 'anthropic'
       ? {
-        headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+        headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, Authorization: `Bearer ${apiKey}`, 'anthropic-version': '2023-06-01' },
         body: { model: cloud.model, max_tokens: 8000, system: '你是一名严谨的中文会议纪要助手。', messages: [{ role: 'user', content: prompt }], temperature: 0.2 }
       }
       : {
