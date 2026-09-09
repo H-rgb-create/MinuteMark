@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="小记">
+  <g fill="none" stroke="#111111" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="6.5" y="4.5" width="19" height="23" rx="4" stroke-width="2.2"/>
+    <path d="M11 10.5h10M11 15.5h7" stroke-width="2"/>
+    <path d="m11 21 2.2 2.2 5-5.3" stroke-width="2.3"/>
+  </g>
+</svg>

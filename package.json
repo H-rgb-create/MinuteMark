@@ -1,0 +1,15 @@
+{
+  "name": "minute-mark",
+  "productName": "小记",
+  "version": "0.1.0",
+  "description": "小记——本地优先的会议纪要助手",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron .",
+    "lint": "node --check src/main.js && node --check src/preload.js && node --check src/renderer.js && node --check src/capture.js"
+  },
+  "devDependencies": {
+    "electron": "^37.3.0"
+  }
+}
